@@ -12,7 +12,7 @@ The script inspects SIS metadata to determine platform compatibility and then co
 - Supports **copy** and **move** modes
 - **Dry-run (info) mode** to preview actions
 - Optional **platform combine** (e.g. grouping similar S60 variants)
-- Automatic extraction of **archives**, including nested archives
+- Automatic archive extraction (including nested archives), processing the **first SIS file found** (works best if WinRAR is installed)
 
 ## Usage
 
@@ -28,14 +28,14 @@ The script inspects SIS metadata to determine platform compatibility and then co
     ```
 
 ## Command-Line Options
-* -i
+* -i  
 Info mode — shows where files would be placed without copying or moving them.
 
-* -mv
+* -mv  
 Move mode — moves files instead of copying them.
 
-* -combinePlatform
-Platform consolidation — merges closely related platforms into a single folder
+* -combinePlatform  
+Platform grouping — merges closely related platforms into a single folder
 (e.g. all S60 2nd Edition variants → S60v2).
 
 ## SISInfo Dependency
