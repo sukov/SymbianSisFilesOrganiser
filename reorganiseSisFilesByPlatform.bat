@@ -87,9 +87,10 @@ if not "%SCAN_DIR:~1,1%"==":" (
 
 set "OUTPUT_DIR=%SCAN_DIR%\SymbianFilesOrganised"
 set "UNIDENTIFIED_DIR=%OUTPUT_DIR%\UnidentifiedFiles"
-set "DETECTION_SCRIPT=%SCRIPT_DIR%\symbianOSPlatformId.ps1"
-set "CSV_FILE=%SCRIPT_DIR%\symbianPlatformProductMachineUids.csv"
-set "EXTRACT_SCRIPT=%SCRIPT_DIR%\extractArchive.bat"
+set "HELPER_DIR=%SCRIPT_DIR%\reorganiseSisHelperScripts"
+set "DETECTION_SCRIPT=%HELPER_DIR%\symbianOSPlatformId.ps1"
+set "CSV_FILE=%HELPER_DIR%\symbianPlatformProductMachineUids.csv"
+set "EXTRACT_SCRIPT=%HELPER_DIR%\extractArchive.bat"
 
 REM ===== Special UID values for OS detection =====
 set "SYMBIAN_OS9_UID=0x10201A7A"
@@ -116,6 +117,7 @@ if "%COMBINE_PLATFORM%"=="1" (
 
 echo Processing folder: %SCAN_DIR%
 echo Script directory: %SCRIPT_DIR%
+echo Helper scripts directory: %HELPER_DIR%
 echo Detection script: %DETECTION_SCRIPT%
 echo CSV file: %CSV_FILE%
 echo Extract script: %EXTRACT_SCRIPT%
