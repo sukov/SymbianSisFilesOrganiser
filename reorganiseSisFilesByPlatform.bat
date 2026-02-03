@@ -450,6 +450,9 @@ for %%F in ("%SOURCE_FILE%") do (
 REM Extract target directory from destination file path
 for %%D in ("%~dp2.") do set "TARGET_DIR=%%~fD"
 
+REM Ensure TARGET_DIR has a trailing backslash
+if not "!TARGET_DIR:~-1!"=="\" set "TARGET_DIR=!TARGET_DIR!\"
+
 REM Get just the folder name (not full path) for display
 for %%D in ("!TARGET_DIR!.") do set "DISPLAY_FOLDER=%%~nD"
 
