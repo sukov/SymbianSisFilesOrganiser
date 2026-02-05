@@ -181,7 +181,7 @@ set "TOTAL_FILES=0"
 for /r "%SCAN_DIR%" %%F in (*.sis *.sisx *.zip *.rar) do (
     set "CHECK_FILE=%%F"
     REM Skip files already in output directories
-    echo !CHECK_FILE! | findstr /I /C:"%OUTPUT_DIR%" >nul
+    echo "!CHECK_FILE!" | findstr /I /C:"%OUTPUT_DIR%" >nul
     if !ERRORLEVEL! NEQ 0 (
         set /a "TOTAL_FILES+=1"
     )
@@ -217,7 +217,7 @@ set "FILE_NAME=!CURRENT_NAME!"
 set "FILE_EXT=!CURRENT_EXT!"
 
 REM Skip files already in output directories
-echo !FILE_PATH! | findstr /I /C:"%OUTPUT_DIR%" >nul
+echo "!FILE_PATH!" | findstr /I /C:"%OUTPUT_DIR%" >nul
 if !ERRORLEVEL! EQU 0 (
     goto :eof
 )
@@ -463,14 +463,16 @@ if not exist "%DEST_FILE%" (
         ) else (
             echo ^> Moving to !DISPLAY_FOLDER! folder
         )
-        move /Y "%SOURCE_FILE%" "%DEST_FILE%" >nul 2>&1
+        move /Y "!SOURCE_FILE!" "!DEST_FILE!" >nul 2>&1
+        if !ERRORLEVEL! NEQ 0 echo ^> ERROR: Move failed, skipping file 
     ) else (
         if "!FILE_TYPE!"=="archive" (
             echo ^> Copying archive to !DISPLAY_FOLDER! folder
         ) else (
             echo ^> Copying to !DISPLAY_FOLDER! folder
         )
-        copy /Y "%SOURCE_FILE%" "%DEST_FILE%" >nul 2>&1
+        copy /Y "!SOURCE_FILE!" "!DEST_FILE!" >nul 2>&1
+        if !ERRORLEVEL! NEQ 0 echo ^> ERROR: Copy failed, skipping file
     )
 ) else (
     REM Handle duplicates with counter - using original logic
@@ -488,14 +490,16 @@ if not exist "%DEST_FILE%" (
             ) else (
                 echo ^> Moving as !new_name!
             )
-            move /Y "%SOURCE_FILE%" "!dest_path!" >nul 2>&1
+            move /Y "!SOURCE_FILE!" "!dest_path!" >nul 2>&1
+            if !ERRORLEVEL! NEQ 0 echo ^> ERROR: Move failed, skipping file
         ) else (
             if "!FILE_TYPE!"=="archive" (
                 echo ^> Copying archive as !new_name!
             ) else (
                 echo ^> Copying as !new_name!
             )
-            copy /Y "%SOURCE_FILE%" "!dest_path!" >nul 2>&1
+            copy /Y "!SOURCE_FILE!" "!dest_path!" >nul 2>&1
+            if !ERRORLEVEL! NEQ 0 echo ^> ERROR: Copy failed, skipping file
         )
     ) else (
         set /a "counter+=1"
