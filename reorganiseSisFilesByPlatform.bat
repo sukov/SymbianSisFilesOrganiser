@@ -440,15 +440,19 @@ set "SOURCE_FILE=%~1"
 set "DEST_FILE=%~2"
 set "FILE_TYPE=%~3"
 
+REM Convert ^^ to ^ (batch escapes ^ in for loops)
+set "SOURCE_FILE=!SOURCE_FILE:^^=^!"
+set "DEST_FILE=!DEST_FILE:^^=^!"
+
 REM Extract filename components from source file
-for %%F in ("%SOURCE_FILE%") do (
+for %%F in ("!SOURCE_FILE!") do (
     set "SOURCE_FILENAME=%%~nxF"
     set "SOURCE_BASENAME=%%~nF"
     set "SOURCE_EXT=%%~xF"
 )
 
 REM Extract target directory from destination file path
-for %%D in ("%~dp2.") do set "TARGET_DIR=%%~fD"
+for %%D in ("!DEST_FILE!") do set "TARGET_DIR=%%~dpD"
 
 REM Ensure TARGET_DIR has a trailing backslash
 if not "!TARGET_DIR:~-1!"=="\" set "TARGET_DIR=!TARGET_DIR!\"
@@ -456,7 +460,7 @@ if not "!TARGET_DIR:~-1!"=="\" set "TARGET_DIR=!TARGET_DIR!\"
 REM Get just the folder name (not full path) for display
 for %%D in ("!TARGET_DIR!.") do set "DISPLAY_FOLDER=%%~nD"
 
-if not exist "%DEST_FILE%" (
+if not exist "!DEST_FILE!" (
     if "%USE_MOVE%"=="1" (
         if "!FILE_TYPE!"=="archive" (
             echo ^> Moving archive to !DISPLAY_FOLDER! folder
