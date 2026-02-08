@@ -166,29 +166,48 @@ if exist "%CSV_FILE%" (
 echo Loaded !UID_COUNT! UID mappings from CSV
 echo.
 
-if "%INFO_ONLY%"=="0" (
-    echo Creating output directories in target folder...
-    if not exist "%OUTPUT_DIR%" mkdir "%OUTPUT_DIR%"
-    if not exist "%UNIDENTIFIED_DIR%" mkdir "%UNIDENTIFIED_DIR%"
-)
-
-REM ===== Process all SIS and archive files recursively =====
 echo.
 echo Scanning for Symbian files and archives...
 echo.
 
+set "TEMP_FILE_LIST=%TEMP%\symbian_files_%RANDOM%.txt"
+if exist "%TEMP_FILE_LIST%" del "%TEMP_FILE_LIST%"
+
+REM Use DIR to quickly gather all files (much faster than FOR /R)
+dir /b /s /a-d "%SCAN_DIR%\*.sis" "%SCAN_DIR%\*.sisx" "%SCAN_DIR%\*.zip" "%SCAN_DIR%\*.rar" 2>nul > "%TEMP_FILE_LIST%"
+
 set "TOTAL_FILES=0"
-for /r "%SCAN_DIR%" %%F in (*.sis *.sisx *.zip *.rar) do (
+set "FILTERED_LIST=%TEMP%\symbian_filtered_%RANDOM%.txt"
+if exist "%FILTERED_LIST%" del "%FILTERED_LIST%"
+
+for /f "usebackq delims=" %%F in ("%TEMP_FILE_LIST%") do (
     set "CHECK_FILE=%%F"
-    REM Skip files already in output directories
+    REM Skip files already in output directories (case-insensitive check)
     echo "!CHECK_FILE!" | findstr /I /C:"%OUTPUT_DIR%" >nul
     if !ERRORLEVEL! NEQ 0 (
+        echo %%F>> "%FILTERED_LIST%"
         set /a "TOTAL_FILES+=1"
     )
 )
 
+del "%TEMP_FILE_LIST%"
+
 echo Found !TOTAL_FILES! files to process
 echo.
+
+if !TOTAL_FILES! EQU 0 (
+    echo No files to process!
+    if exist "%FILTERED_LIST%" del "%FILTERED_LIST%"
+    pause
+    exit /b 0
+)
+
+if "%INFO_ONLY%"=="0" (
+    echo Creating output directories...
+    if not exist "%OUTPUT_DIR%" mkdir "%OUTPUT_DIR%"
+    if not exist "%UNIDENTIFIED_DIR%" mkdir "%UNIDENTIFIED_DIR%"
+    echo.
+)
 
 REM Process files with progress tracking
 set "PROCESSED_FILES=0"
@@ -196,12 +215,16 @@ set "SKIPPED_FILES=0"
 set "SKIPPED_LIST_FILE=%TEMP%\skipped_files_%RANDOM%.txt"
 if exist "%SKIPPED_LIST_FILE%" del "%SKIPPED_LIST_FILE%"
 
-for /r "%SCAN_DIR%" %%F in (*.sis *.sisx *.zip *.rar) do (
+for /f "usebackq delims=" %%F in ("%FILTERED_LIST%") do (
     set "CURRENT_FILE=%%F"
-    set "CURRENT_NAME=%%~nxF"
-    set "CURRENT_EXT=%%~xF"
+    for %%I in ("%%F") do (
+        set "CURRENT_NAME=%%~nxI"
+        set "CURRENT_EXT=%%~xI"
+    )
     call :process_file_inline
 )
+
+del "%FILTERED_LIST%"
 
 echo.
 echo ===== Organization Complete =====
@@ -240,12 +263,6 @@ REM ===== Function: Process individual file inline =====
 set "FILE_PATH=!CURRENT_FILE!"
 set "FILE_NAME=!CURRENT_NAME!"
 set "FILE_EXT=!CURRENT_EXT!"
-
-REM Skip files already in output directories
-echo "!FILE_PATH!" | findstr /I /C:"%OUTPUT_DIR%" >nul
-if !ERRORLEVEL! EQU 0 (
-    goto :eof
-)
 
 REM Increment processed counter and calculate percentage
 set /a "PROCESSED_FILES+=1"
