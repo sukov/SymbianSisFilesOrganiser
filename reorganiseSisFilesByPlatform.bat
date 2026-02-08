@@ -1,7 +1,6 @@
 @echo off
 setlocal ENABLEDELAYEDEXPANSION
 
-REM ===== Capture script directory FIRST before any parsing =====
 set "SCRIPT_DIR=%~dp0"
 REM Remove trailing backslash from SCRIPT_DIR
 if "%SCRIPT_DIR:~-1%"=="\" set "SCRIPT_DIR=%SCRIPT_DIR:~0,-1%"
@@ -59,7 +58,6 @@ if not defined TARGET_FOLDER_PARAM (
     exit /b 1
 )
 
-REM Remove trailing backslash if present
 if "%TARGET_FOLDER_PARAM:~-1%"=="\" set "TARGET_FOLDER_PARAM=%TARGET_FOLDER_PARAM:~0,-1%"
 
 if not exist "%TARGET_FOLDER_PARAM%" (
@@ -178,7 +176,9 @@ dir /b /s /a-d "%SCAN_DIR%\*.sis" "%SCAN_DIR%\*.sisx" "%SCAN_DIR%\*.zip" "%SCAN_
 
 set "TOTAL_FILES=0"
 set "FILTERED_LIST=%TEMP%\symbian_filtered_%RANDOM%.txt"
+set "SORTED_LIST=%TEMP%\symbian_sorted_%RANDOM%.txt"
 if exist "%FILTERED_LIST%" del "%FILTERED_LIST%"
+if exist "%SORTED_LIST%" del "%SORTED_LIST%"
 
 for /f "usebackq delims=" %%F in ("%TEMP_FILE_LIST%") do (
     set "CHECK_FILE=%%F"
@@ -186,11 +186,22 @@ for /f "usebackq delims=" %%F in ("%TEMP_FILE_LIST%") do (
     echo "!CHECK_FILE!" | findstr /I /C:"%OUTPUT_DIR%" >nul
     if !ERRORLEVEL! NEQ 0 (
         echo %%F>> "%FILTERED_LIST%"
-        set /a "TOTAL_FILES+=1"
     )
 )
 
 del "%TEMP_FILE_LIST%"
+
+REM Sort and remove duplicates
+powershell -NoProfile -Command "Get-Content '%FILTERED_LIST%' | Select-Object -Unique | Set-Content '%SORTED_LIST%'"
+del "%FILTERED_LIST%"
+
+REM Count unique files
+for /f "usebackq delims=" %%F in ("%SORTED_LIST%") do (
+    set /a "TOTAL_FILES+=1"
+)
+
+REM Rename sorted list to filtered list for processing
+move /Y "%SORTED_LIST%" "%FILTERED_LIST%" >nul
 
 echo Found !TOTAL_FILES! files to process
 echo.
@@ -213,18 +224,37 @@ REM Process files with progress tracking
 set "PROCESSED_FILES=0"
 set "SKIPPED_FILES=0"
 set "SKIPPED_LIST_FILE=%TEMP%\skipped_files_%RANDOM%.txt"
+set "PROCESSED_TRACKING=%TEMP%\processed_tracking_%RANDOM%.txt"
 if exist "%SKIPPED_LIST_FILE%" del "%SKIPPED_LIST_FILE%"
+if exist "%PROCESSED_TRACKING%" del "%PROCESSED_TRACKING%"
 
 for /f "usebackq delims=" %%F in ("%FILTERED_LIST%") do (
     set "CURRENT_FILE=%%F"
-    for %%I in ("%%F") do (
-        set "CURRENT_NAME=%%~nxI"
-        set "CURRENT_EXT=%%~xI"
+    
+    REM Check if this file was already processed (prevent duplicates)
+    set "ALREADY_PROCESSED=0"
+    if exist "%PROCESSED_TRACKING%" (
+        findstr /I /X /C:"%%F" "%PROCESSED_TRACKING%" >nul 2>&1
+        if !ERRORLEVEL! EQU 0 (
+            set "ALREADY_PROCESSED=1"
+        )
     )
-    call :process_file_inline
+    
+    if !ALREADY_PROCESSED! EQU 0 (
+        REM Mark file as processed
+        echo %%F>> "%PROCESSED_TRACKING%"
+        
+        for %%I in ("%%F") do (
+            set "CURRENT_NAME=%%~nxI"
+            set "CURRENT_EXT=%%~xI"
+        )
+        call :process_file_inline
+    )
 )
 
+REM Clean up temporary files
 del "%FILTERED_LIST%"
+if exist "%PROCESSED_TRACKING%" del "%PROCESSED_TRACKING%"
 
 echo.
 echo ===== Organization Complete =====
@@ -237,24 +267,27 @@ if "%INFO_ONLY%"=="0" (
 echo.
 
 REM Display skipped files if any
-if !SKIPPED_FILES! EQU 0 goto :no_errors
-echo ===== WARNING: !SKIPPED_FILES! file(s) were skipped due to copy/move errors =====
+echo Total files processed: !PROCESSED_FILES!
+echo Files skipped due to errors: !SKIPPED_FILES!
 echo.
-if exist "%SKIPPED_LIST_FILE%" (
-    REM Convert ^^ to ^ in the displayed list
-    for /f "usebackq delims=" %%L in ("%SKIPPED_LIST_FILE%") do (
-        set "LINE=%%L"
-        set "LINE=!LINE:^^=^!"
-        echo !LINE!
+
+if !SKIPPED_FILES! GTR 0 (
+    echo ===== WARNING: !SKIPPED_FILES! file^(s^) were skipped due to copy/move errors =====
+    echo.
+    if exist "%SKIPPED_LIST_FILE%" (
+        REM Display all skipped files
+        for /f "usebackq delims=" %%L in ("%SKIPPED_LIST_FILE%") do (
+            set "LINE=%%L"
+            REM Convert ^^ to ^ in the displayed list
+            set "LINE=!LINE:^^=^!"
+            echo !LINE!
+        )
+        echo.
+        del "%SKIPPED_LIST_FILE%"
     )
-    del "%SKIPPED_LIST_FILE%"
+) else (
+    if exist "%SKIPPED_LIST_FILE%" del "%SKIPPED_LIST_FILE%"
 )
-goto :end_script
-
-:no_errors
-if exist "%SKIPPED_LIST_FILE%" del "%SKIPPED_LIST_FILE%"
-
-:end_script
 pause
 goto :eof
 
@@ -269,8 +302,6 @@ set /a "PROCESSED_FILES+=1"
 set /a "PERCENT=PROCESSED_FILES*100/TOTAL_FILES"
 echo [!PERCENT!%%] Processing: !FILE_NAME!
 
-setlocal ENABLEDELAYEDEXPANSION
-
 REM Handle different file types
 if /I "!FILE_EXT!"==".sis" goto :process_sis_inline
 if /I "!FILE_EXT!"==".sisx" goto :process_sis_inline
@@ -278,7 +309,6 @@ if /I "!FILE_EXT!"==".zip" goto :process_archive_inline
 if /I "!FILE_EXT!"==".rar" goto :process_archive_inline
 
 echo ^> Unknown file type
-endlocal
 goto :eof
 
 REM ===== Process archive files =====
@@ -288,7 +318,6 @@ echo ^> Archive detected
 if "%INFO_ONLY%"=="1" (
     echo ^> [INFO] Would extract and analyze archive contents
     echo ^> [INFO] Would copy ORIGINAL archive to appropriate folder based on detection
-    endlocal
     goto :eof
 )
 
@@ -305,7 +334,6 @@ if !ERRORLEVEL! NEQ 0 (
     echo ^> Extraction failed, copying archive to UnidentifiedFiles\Unknown
     call :move_archive_to_unknown_inline
     rd /s /q "!EXTRACT_DIR!" 2>nul
-    endlocal
     goto :eof
 )
 
@@ -325,7 +353,6 @@ if not defined FOUND_SIS (
     echo ^> No SIS/SISX files found in archive, copying to UnidentifiedFiles\Unknown
     call :move_archive_to_unknown_inline
     rd /s /q "!EXTRACT_DIR!" 2>nul
-    endlocal
     goto :eof
 )
 
@@ -366,7 +393,6 @@ if "!DETECTED_PLATFORM!"=="" (
         call :move_archive_to_unknown_inline
     )
     rd /s /q "!EXTRACT_DIR!" 2>nul
-    endlocal
     goto :eof
 )
 
@@ -380,7 +406,6 @@ if "!TARGET_FOLDER!"=="" (
     echo ^> Unable to map platform, copying archive to UnidentifiedFiles\Unknown
     call :move_archive_to_unknown_inline
     rd /s /q "!EXTRACT_DIR!" 2>nul
-    endlocal
     goto :eof
 )
 
@@ -395,7 +420,6 @@ call :copy_move_file_with_duplicate_check "!FILE_PATH!" "!DEST_FILE!" "archive"
 
 REM Clean up extraction directory
 rd /s /q "!EXTRACT_DIR!" 2>nul
-endlocal
 goto :eof
 
 REM ===== Process SIS files =====
@@ -419,7 +443,6 @@ if "!DETECTED_PLATFORM!"=="" (
         echo ^> Unknown UID, copying to UnidentifiedFiles\Unknown
         call :move_file_to_unknown_inline
     )
-    endlocal
     goto :eof
 )
 
@@ -432,7 +455,6 @@ set "TARGET_FOLDER=!MAPPED_FOLDER!"
 if "!TARGET_FOLDER!"=="" (
     echo ^> Unable to map platform, copying to UnidentifiedFiles\Unknown
     call :move_file_to_unknown_inline
-    endlocal
     goto :eof
 )
 
@@ -440,7 +462,6 @@ echo ^> Target folder: !TARGET_FOLDER!
 
 if "%INFO_ONLY%"=="1" (
     echo ^> [INFO] Would copy to: %OUTPUT_DIR%\!TARGET_FOLDER!\!FILE_NAME!
-    endlocal
     goto :eof
 )
 
@@ -450,7 +471,6 @@ if not exist "%OUTPUT_DIR%\!TARGET_FOLDER!" mkdir "%OUTPUT_DIR%\!TARGET_FOLDER!"
 set "DEST_FILE=%OUTPUT_DIR%\!TARGET_FOLDER!\!FILE_NAME!"
 call :copy_move_file_with_duplicate_check "!FILE_PATH!" "!DEST_FILE!" "file"
 
-endlocal
 goto :eof
 
 REM ===== Method: Map platform to folder name =====
