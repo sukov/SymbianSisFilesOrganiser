@@ -96,30 +96,18 @@ set "SYMBIAN_OS6_UID=0x10003A12"
 set "UNKNOWN_UID=0x00000000"
 
 echo ===== Symbian Application Files Organizer =====
-echo.
 
 if "%INFO_ONLY%"=="1" (
     echo MODE: Information only - no files will be copied
-    echo.
 )
 
 if "%USE_MOVE%"=="1" (
     echo MODE: Move files instead of copying
-    echo.
 )
 
 if "%COMBINE_PLATFORM%"=="1" (
     echo MODE: Combine similar platforms into single folders
-    echo.
 )
-
-echo Processing folder: %SCAN_DIR%
-echo Script directory: %SCRIPT_DIR%
-echo Helper scripts directory: %HELPER_DIR%
-echo Detection script: %DETECTION_SCRIPT%
-echo CSV file: %CSV_FILE%
-echo Extract script: %EXTRACT_SCRIPT%
-echo.
 
 if not exist "%DETECTION_SCRIPT%" (
     echo Error: symbianOSPlatformId.ps1 not found at: %DETECTION_SCRIPT%
@@ -139,8 +127,6 @@ if not exist "%EXTRACT_SCRIPT%" (
     exit /b 1
 )
 
-echo Loading UID mappings from CSV file...
-set "UID_COUNT=0"
 if exist "%CSV_FILE%" (
     for /f "usebackq tokens=1,2 delims=," %%A in ("%CSV_FILE%") do (
         REM Skip header row
@@ -155,18 +141,13 @@ if exist "%CSV_FILE%" (
             if "!str:~-1!" LEQ " " (
                 set "str=!str:~0,-1!"
             )
-            REM Store the cleaned value
+			
             set "uid[!uid_key!]=!str!"
-            set /a "UID_COUNT+=1"
         )
     )
 )
-echo Loaded !UID_COUNT! UID mappings from CSV
-echo.
 
-echo.
 echo Scanning for Symbian files and archives...
-echo.
 
 set "TEMP_FILE_LIST=%TEMP%\symbian_files_%RANDOM%.txt"
 if exist "%TEMP_FILE_LIST%" del "%TEMP_FILE_LIST%"
@@ -214,10 +195,8 @@ if !TOTAL_FILES! EQU 0 (
 )
 
 if "%INFO_ONLY%"=="0" (
-    echo Creating output directories...
     if not exist "%OUTPUT_DIR%" mkdir "%OUTPUT_DIR%"
     if not exist "%UNIDENTIFIED_DIR%" mkdir "%UNIDENTIFIED_DIR%"
-    echo.
 )
 
 REM Process files with progress tracking
@@ -264,17 +243,15 @@ if "%INFO_ONLY%"=="0" (
 ) else (
     echo Information scan complete - no files were copied
 )
+
+echo Total files processed: !PROCESSED_FILES!
 echo.
 
 REM Display skipped files if any
-echo Total files processed: !PROCESSED_FILES!
-echo Files skipped due to errors: !SKIPPED_FILES!
-echo.
-
 if !SKIPPED_FILES! GTR 0 (
     echo ===== WARNING: !SKIPPED_FILES! file^(s^) were skipped due to copy/move errors =====
-    echo.
-    if exist "%SKIPPED_LIST_FILE%" (
+    
+	if exist "%SKIPPED_LIST_FILE%" (
         REM Display all skipped files
         for /f "usebackq delims=" %%L in ("%SKIPPED_LIST_FILE%") do (
             set "LINE=%%L"
