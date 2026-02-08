@@ -192,6 +192,10 @@ echo.
 
 REM Process files with progress tracking
 set "PROCESSED_FILES=0"
+set "SKIPPED_FILES=0"
+set "SKIPPED_LIST_FILE=%TEMP%\skipped_files_%RANDOM%.txt"
+if exist "%SKIPPED_LIST_FILE%" del "%SKIPPED_LIST_FILE%"
+
 for /r "%SCAN_DIR%" %%F in (*.sis *.sisx *.zip *.rar) do (
     set "CURRENT_FILE=%%F"
     set "CURRENT_NAME=%%~nxF"
@@ -207,6 +211,27 @@ if "%INFO_ONLY%"=="0" (
 ) else (
     echo Information scan complete - no files were copied
 )
+echo.
+
+REM Display skipped files if any
+if !SKIPPED_FILES! EQU 0 goto :no_errors
+echo ===== WARNING: !SKIPPED_FILES! file(s) were skipped due to copy/move errors =====
+echo.
+if exist "%SKIPPED_LIST_FILE%" (
+    REM Convert ^^ to ^ in the displayed list
+    for /f "usebackq delims=" %%L in ("%SKIPPED_LIST_FILE%") do (
+        set "LINE=%%L"
+        set "LINE=!LINE:^^=^!"
+        echo !LINE!
+    )
+    del "%SKIPPED_LIST_FILE%"
+)
+goto :end_script
+
+:no_errors
+if exist "%SKIPPED_LIST_FILE%" del "%SKIPPED_LIST_FILE%"
+
+:end_script
 pause
 goto :eof
 
@@ -468,7 +493,11 @@ if not exist "!DEST_FILE!" (
             echo ^> Moving to !DISPLAY_FOLDER! folder
         )
         move /Y "!SOURCE_FILE!" "!DEST_FILE!" >nul 2>&1
-        if !ERRORLEVEL! NEQ 0 echo ^> ERROR: Move failed, skipping file 
+        if !ERRORLEVEL! NEQ 0 (
+            echo ^> ERROR: Move failed, skipping file
+            echo !SOURCE_FILE! >> "%SKIPPED_LIST_FILE%"
+            set /a "SKIPPED_FILES+=1"
+        )
     ) else (
         if "!FILE_TYPE!"=="archive" (
             echo ^> Copying archive to !DISPLAY_FOLDER! folder
@@ -476,7 +505,11 @@ if not exist "!DEST_FILE!" (
             echo ^> Copying to !DISPLAY_FOLDER! folder
         )
         copy /Y "!SOURCE_FILE!" "!DEST_FILE!" >nul 2>&1
-        if !ERRORLEVEL! NEQ 0 echo ^> ERROR: Copy failed, skipping file
+        if !ERRORLEVEL! NEQ 0 (
+            echo ^> ERROR: Copy failed, skipping file
+            echo !SOURCE_FILE! >> "%SKIPPED_LIST_FILE%"
+            set /a "SKIPPED_FILES+=1"
+        )
     )
 ) else (
     REM Handle duplicates with counter - using original logic
@@ -495,7 +528,11 @@ if not exist "!DEST_FILE!" (
                 echo ^> Moving as !new_name!
             )
             move /Y "!SOURCE_FILE!" "!dest_path!" >nul 2>&1
-            if !ERRORLEVEL! NEQ 0 echo ^> ERROR: Move failed, skipping file
+            if !ERRORLEVEL! NEQ 0 (
+                echo ^> ERROR: Move failed, skipping file
+                echo !SOURCE_FILE! >> "%SKIPPED_LIST_FILE%"
+                set /a "SKIPPED_FILES+=1"
+            )
         ) else (
             if "!FILE_TYPE!"=="archive" (
                 echo ^> Copying archive as !new_name!
@@ -503,7 +540,11 @@ if not exist "!DEST_FILE!" (
                 echo ^> Copying as !new_name!
             )
             copy /Y "!SOURCE_FILE!" "!dest_path!" >nul 2>&1
-            if !ERRORLEVEL! NEQ 0 echo ^> ERROR: Copy failed, skipping file
+            if !ERRORLEVEL! NEQ 0 (
+                echo ^> ERROR: Copy failed, skipping file
+                echo !SOURCE_FILE! >> "%SKIPPED_LIST_FILE%"
+                set /a "SKIPPED_FILES+=1"
+            )
         )
     ) else (
         set /a "counter+=1"
