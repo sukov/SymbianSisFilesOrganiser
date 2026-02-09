@@ -260,6 +260,10 @@ if !SKIPPED_FILES! GTR 0 (
             echo !LINE!
         )
         echo.
+		echo Tip: Usually filenames containing '^^!' char are problematic and skipped.
+		echo      Try renaming them without '^^!' and re-run the script on those files.
+		echo      Other problematic characters: '^&' and '^^'
+		echo.
         del "%SKIPPED_LIST_FILE%"
     )
 ) else (
